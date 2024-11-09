@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "arduino.h": "c",
+        "iterator": "cpp",
+        "*.tcc": "cpp",
+        "cmath": "cpp"
+        "*.tcc": "cpp",
+        "array": "cpp",
+        "string": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "functional": "cpp",
+        "limits": "cpp",
+        "ostream": "cpp",
+        "streambuf": "cpp",
+        "tuple": "cpp"
+    }
+}
