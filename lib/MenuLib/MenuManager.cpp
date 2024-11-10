@@ -73,7 +73,7 @@ void MenuManager::handleInput(Button button)
 {
     MenuItem *item = nullptr;
 
-    waitTillButtonReleased(BUTTON_DOWN);
+    // waitTillButtonReleased(BUTTON_DOWN);
 
     switch (button)
     {

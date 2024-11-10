@@ -1,6 +1,10 @@
 #include <avr/pgmspace.h>
 #ifndef __SAM3X8E__
+#ifdef AVR
 #include <util/delay.h>
+#else
+#include <Arduino.h> // For delay() on STM32 and other non-AVR platforms
+#endif
 #endif
 #include <stdlib.h>
 
@@ -162,9 +166,12 @@ void OLED_SH1106::begin(uint8_t vccstate, uint8_t i2caddr, bool reset)
     // set pin directions
     if (sid != -1)
     {
+#ifdef AVR
         pinMode(dc, OUTPUT);
         pinMode(cs, OUTPUT);
-        csport = portOutputRegister(digitalPinToPort(cs));
+        // csport = portOutputRegister(digitalPinToPort(cs));
+        pinMode(cs, OUTPUT); // Set the CS pin as output
+
         cspinmask = digitalPinToBitMask(cs);
         dcport = portOutputRegister(digitalPinToPort(dc));
         dcpinmask = digitalPinToBitMask(dc);
@@ -187,6 +194,19 @@ void OLED_SH1106::begin(uint8_t vccstate, uint8_t i2caddr, bool reset)
             SPI.setClockDivider(SPI_CLOCK_DIV2); // 8 MHz
 #endif
         }
+#else
+        pinMode(dc, OUTPUT);
+        pinMode(cs, OUTPUT);
+        if (!hwSPI)
+        {
+            pinMode(sid, OUTPUT);
+            pinMode(sclk, OUTPUT);
+        }
+        if (hwSPI)
+        {
+            SPI.begin();
+        }
+#endif
     }
     else
     {
@@ -199,7 +219,7 @@ void OLED_SH1106::begin(uint8_t vccstate, uint8_t i2caddr, bool reset)
 #endif
     }
 
-    if (reset)
+    if (reset && (rst != -1))
     {
         // Setup reset pin direction (used by both SPI and I2C)
         pinMode(rst, OUTPUT);
@@ -485,8 +505,10 @@ void OLED_SH1106::display(void)
 
         // save I2C bitrate
 #ifndef __SAM3X8E__
+#ifdef AVR
         uint8_t twbrbackup = TWBR;
         TWBR = 12; // upgrade to 400KHz!
+#endif
 #endif
 
         for (i = 0; i < height; i++)
@@ -510,7 +532,9 @@ void OLED_SH1106::display(void)
         }
 
 #ifndef __SAM3X8E__
+#ifdef AVR
         TWBR = twbrbackup;
+#endif
 #endif
     }
 }

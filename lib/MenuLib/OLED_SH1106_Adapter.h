@@ -23,9 +23,6 @@ public:
 
     void setTextColor(int color) override { _oled.setTextColor(color); }
 
-    // Add this if DisplayInterface requires it
-    // void setTextColor(int color) override { oled.setTextColor(color); }
-
 private:
     OLED_SH1106 &_oled;
 };

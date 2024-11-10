@@ -11,6 +11,7 @@ public:
     Stm32EncoderButtonAdapter(int pinA, int pinB, int buttonPin)
         : encoder(pinA, pinB), buttonPin(buttonPin), lastPosition(0)
     {
+        encoder.begin();
         pinMode(buttonPin, INPUT_PULLUP); // Assume button uses a pull-up resistor
     }
 

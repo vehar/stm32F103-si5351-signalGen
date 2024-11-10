@@ -12,7 +12,7 @@ extern int powerLevel;
 #define BUTTON_CONFIRM_PIN PA3
 
 // OLED settings
-#define OLED_RESET -1
+constexpr int OLED_RESET = -1;
 #define OLED_ADDR 0x3C
 
 #endif
