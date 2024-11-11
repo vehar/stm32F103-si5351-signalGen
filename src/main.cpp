@@ -18,13 +18,13 @@ Parameter paramPower("Power", powerLevel, 0, 4);
 MenuItem itemFreq("Set Frequency", MENU_ITEM_PARAMETER, nullptr, &paramFreq);
 MenuItem itemPower("Set Power", MENU_ITEM_PARAMETER, nullptr, &paramPower);
 MenuItem *mainMenuItems[] = { &itemFreq, &itemPower };
-Menu mainMenu("Signal Generator_", mainMenuItems, 2);
+Menu mainMenu("Signal Generator", mainMenuItems, 2);
 
 // Initialize OLED display and adapters as pointers
-OLED_SH1106 oled(OLED_RESET);     // SH1106 display object
-ButtonInterface *buttonAdapter;   // Button adapter pointer
-DisplayInterface *displayAdapter; // Display adapter pointer
-MenuManager *menuManager;         // Menu manager pointer
+OLED_SH1106 oled(OLED_RESET);
+ButtonInterface *buttonAdapter;
+DisplayInterface *displayAdapter;
+MenuManager *menuManager;
 
 void displayMessage(const String &message, int textSize = 1, bool immediateUpdate = true);
 
@@ -123,5 +123,5 @@ void loop()
 {
     Button button = buttonAdapter->getPressedButton();
     menuManager->handleInput(button);
-    // delay(50); // Debounce delay
+    // delay(100); // Debounce delay
 }

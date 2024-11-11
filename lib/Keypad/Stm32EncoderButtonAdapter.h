@@ -3,15 +3,15 @@
 #define STM32_ENCODER_BUTTON_ADAPTER_H
 
 #include "ButtonInterface.h"
-#include <Rotary.h> // Include the Rotary encoder library
+// #include <Rotary.h> // Include the Rotary encoder library
+#include "Rotary_Interrupt.h"
 
 class Stm32EncoderButtonAdapter : public ButtonInterface
 {
 public:
     Stm32EncoderButtonAdapter(int pinA, int pinB, int buttonPin)
-        : encoder(pinA, pinB), buttonPin(buttonPin), lastPosition(0)
+        : encoder(pinA, pinB, buttonPin), buttonPin(buttonPin), lastPosition(0)
     {
-        encoder.begin();
         pinMode(buttonPin, INPUT_PULLUP); // Assume button uses a pull-up resistor
     }
 
@@ -40,7 +40,7 @@ public:
     }
 
 private:
-    Rotary encoder; // Use the Rotary library
+    Rotary_Interrupt encoder; // Use the Rotary library
     int buttonPin;
     int lastPosition;
 };
