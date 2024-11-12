@@ -9,9 +9,14 @@
 class Stm32EncoderButtonAdapter : public ButtonInterface
 {
 public:
-    Stm32EncoderButtonAdapter(int pinA, int pinB, int buttonPin)
-        : encoder(pinA, pinB, buttonPin), buttonPin(buttonPin), lastPosition(0)
+    Stm32EncoderButtonAdapter(int pinA, int pinB, int buttonPin, int upButtonPin, int downButtonPin)
+        : encoder(pinA, pinB, buttonPin),
+          _upButtonPin(upButtonPin),
+          _downButtonPin(downButtonPin),
+          lastPosition(0)
     {
+        pinMode(_upButtonPin, INPUT_PULLUP);
+        pinMode(_downButtonPin, INPUT_PULLUP);
         encoder.begin();
     }
 
@@ -22,12 +27,12 @@ public:
         if (result == DIR_CW)
         {
             lastPosition++;
-            return BUTTON_UP;
+            return BUTTON_RIGHT;
         }
         else if (result == DIR_CCW)
         {
             lastPosition--;
-            return BUTTON_DOWN;
+            return BUTTON_LEFT;
         }
 
         // Check encoder button press
@@ -36,8 +41,14 @@ public:
             return BUTTON_CENTER;
         }
 
-        if (digitalRead(buttonPin) == LOW)
+        if (digitalRead(_upButtonPin) == LOW)
         {
+            return BUTTON_UP;
+        }
+
+        if (digitalRead(_downButtonPin) == LOW)
+        {
+            return BUTTON_DOWN;
         }
 
         return BUTTON_NONE;
@@ -45,7 +56,8 @@ public:
 
 private:
     Rotary_Interrupt encoder;
-    int buttonPin;
+    int _upButtonPin;
+    int _downButtonPin;
     int lastPosition;
 };
 

@@ -45,7 +45,7 @@ void MenuManager::displayParameterDetails(Parameter *parameter)
     displayText("\n\n");
 
     displayText(parameter->getName());
-    displayText("\n=  ");
+    displayText("\n=");
     display.print(parameter->getValue()); // Display parameter value
 
     display.display();
@@ -69,6 +69,8 @@ void MenuManager::switchScale()
         currentScale = 100;
     else if (currentScale == 100)
         currentScale = 1000;
+    else if (currentScale == 1000)
+        currentScale = 10000;
     else
         currentScale = 1;
 }
@@ -77,11 +79,11 @@ void MenuManager::handleInput(Button button)
 {
     MenuItem *item = nullptr;
 
-    // waitTillButtonReleased(BUTTON_DOWN);
+    waitTillButtonReleased(BUTTON_UP);
 
     switch (button)
     {
-    case BUTTON_UP:
+    case BUTTON_RIGHT:
         currentIndex--;
         if (currentIndex < 0)
         {
@@ -92,7 +94,7 @@ void MenuManager::handleInput(Button button)
         if (currentIndex < topIndex)
             topIndex--;
         break;
-    case BUTTON_DOWN:
+    case BUTTON_LEFT:
         currentIndex++;
         if (currentIndex >= currentMenu->getItemCount())
         {
@@ -104,7 +106,7 @@ void MenuManager::handleInput(Button button)
             topIndex++;
         break;
 
-    case BUTTON_RIGHT:
+    //case BUTTON_UP:
     case BUTTON_CENTER:
         item = currentMenu->getItem(currentIndex);
         if (item != nullptr)
@@ -116,9 +118,20 @@ void MenuManager::handleInput(Button button)
         }
         waitTillButtonReleased(BUTTON_CENTER);
         break;
-    case BUTTON_LEFT:
-        // Implement "Back" functionality if needed
-        break;
+
+    case BUTTON_DOWN: // Implement "Back" functionality
+    {
+        // Forcly invoke last item (usualy Exit)
+        waitTillButtonReleased(BUTTON_DOWN);
+        int lastItem = currentMenu->getItemCount() - 1;
+        item = currentMenu->getItem(lastItem);
+        if (item != nullptr)
+        {
+            if (item->getType() == MENU_ITEM_ACTION)
+                item->executeAction();
+        }
+    }
+    break;
 
     default:
         break;
@@ -129,31 +142,30 @@ void MenuManager::handleInput(Button button)
 void MenuManager::displayParameter(Parameter *parameter)
 {
     bool tuneFlag = true;
-    waitTillButtonReleased(BUTTON_CENTER);
+    waitTillButtonReleased(BUTTON_DOWN);
 
     while (tuneFlag)
     {
-        displayParameterDetails(parameter);
-        // Display the current scale on a specific part of the screen
+        displayParameterDetails(parameter); // Display the current scale
 
         Button bt = debounceButton();
         switch (bt)
         {
         case BUTTON_LEFT:
-        case BUTTON_DOWN:
             parameter->decrement(currentScale);
             break;
 
-        case BUTTON_UP:
+        case BUTTON_RIGHT:
             parameter->increment(currentScale);
             break;
 
-        case BUTTON_CENTER:
+        case BUTTON_DOWN:
             tuneFlag = false; // Exit adjustment mode
+            currentScale = 1;
             break;
 
-        case BUTTON_RIGHT: // A new button (e.g., long press or other) to switch scales
-            switchScale(); // Switch to the next scale
+        case BUTTON_CENTER: // Switch to the next scale
+            switchScale();
             break;
 
         default:
