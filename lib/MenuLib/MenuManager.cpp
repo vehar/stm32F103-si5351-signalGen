@@ -18,10 +18,14 @@ void MenuManager::waitTillButtonReleased(Button bt)
 Button MenuManager::debounceButton()
 {
     Button lastButton = buttonInterface->getPressedButton();
+#if 1 // If encoder used - no need to additional debounce
+    return lastButton;
+#else
     delay(50); // Short delay for debounce
     if (lastButton == buttonInterface->getPressedButton())
         return lastButton;
     return BUTTON_NONE;
+#endif
 }
 
 void MenuManager::clearAndSetupDisplay(int textSize, int cursorX, int cursorY)

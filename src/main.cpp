@@ -85,7 +85,8 @@ void scanI2CDevices()
 void initializePins()
 {
     pinMode(LED_PIN, OUTPUT);
-    pinMode(BUTTON_CONFIRM_PIN, INPUT_PULLUP);
+    pinMode(UP_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void initializeOLED()
@@ -100,13 +101,15 @@ void setup()
 {
     // Initialize the display and button adapters
     displayAdapter = new OLED_SH1106_Adapter(oled);
-    buttonAdapter = new Stm32EncoderButtonAdapter(ENCODER_A_PIN, ENCODER_B_PIN, BUTTON_CONFIRM_PIN);
+    buttonAdapter = new Stm32EncoderButtonAdapter(ENCODER_A_PIN, ENCODER_B_PIN, ENCODER_PUSH_PIN);
     menuManager = new MenuManager(*displayAdapter, &mainMenu, buttonAdapter);
 
     initializePins();
     Wire.setSCL(PB6);
     Wire.setSDA(PB7);
     initializeOLED();
+
+    delay(500);
 
     // Serial.begin(115200);
 

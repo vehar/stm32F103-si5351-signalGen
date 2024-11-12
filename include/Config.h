@@ -9,7 +9,10 @@ extern int powerLevel;
 #define LED_PIN PC13
 #define ENCODER_A_PIN PB_0
 #define ENCODER_B_PIN PB_1
-#define BUTTON_CONFIRM_PIN PA7
+#define ENCODER_PUSH_PIN PA7
+
+#define UP_BUTTON_PIN PA5
+#define DOWN_BUTTON_PIN PA4
 
 // OLED settings
 constexpr int OLED_RESET = -1;
