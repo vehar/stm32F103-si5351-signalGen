@@ -8,6 +8,8 @@
 #include "Stm32EncoderButtonAdapter.h"
 #include <Arduino.h>
 #include <Wire.h>
+#include "si5351_wrapper.h"
+
 
 const int numChannels = 2;
 int frequencies[numChannels] = { 10000, 10000 }; // Initial frequencies for each channel
@@ -61,6 +63,9 @@ OLED_SH1106 oled(OLED_RESET);
 ButtonInterface *buttonAdapter;
 DisplayInterface *displayAdapter;
 MenuManager *menuManager;
+Si5251Wrapper *si5351wrapper;
+
+
 
 //=================================
 enum DriveStrength
@@ -194,6 +199,8 @@ void setup()
                                                   UP_BUTTON_PIN, DOWN_BUTTON_PIN);
     menuManager = new MenuManager(*displayAdapter, &mainMenu, buttonAdapter);
 
+    si5351wrapper = new Si5251Wrapper();
+
     initializePins();
     Wire.setSCL(PB6);
     Wire.setSDA(PB7);
@@ -206,6 +213,21 @@ void setup()
 
     // Initial display of current channel states
     displayCurrentChannelStates();
+
+    char buff[512];
+    int idx = 0;
+
+
+    if (si5351wrapper->initializeModule() != ERROR_NONE)
+    {
+        /* There was a problem detecting the IC ... check your connections */
+        appendToBuffer(buff, idx, sizeof(buff), "Did not find the si5351\n");
+        displayMessage(buff);
+        delay(5000);
+    }
+
+    si5351wrapper->testModule();
+    
 }
 
 void loop()
@@ -230,7 +252,7 @@ void loop()
 
     if (updatePllParameters)
     {
-        updateSi5351Parameters(); // TODO
+       // updateSi5351Parameters(); // TODO
         updatePllParameters = false;
     }
 
