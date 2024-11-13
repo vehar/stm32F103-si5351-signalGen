@@ -13,17 +13,15 @@
 bool activateMenuMode = false;
 bool updatePllParameters = false;
 
-const int numChannels = 2;
-int32_t iqModeEn = 0; // Global IQ mode enable
-
 const int32_t pllMinF = 2500;              // 2.5kHz
 const int32_t pllMaxF = 200 * 1000 * 1000; // 200MHz
-
+const int numChannels = 2;
 // Channel configurations, including initial frequency and power level for each channel
 Si5351Wrapper::ChannelConfig channels[numChannels] = {
-    { pllMaxF / 2, 1, true }, // Channel 1: Frequency 10kHz, Power Level 1, Enabled
-    { pllMaxF / 2, 1, true }  // Channel 2: Frequency 10kHz, Power Level 1, Enabled
+    { pllMaxF / 100, 1, true }, // Channel 1: Frequency 10kHz, Power Level 1, Enabled
+    { pllMaxF / 100, 1, true }  // Channel 2: Frequency 10kHz, Power Level 1, Enabled
 };
+int32_t iqModeEn = 0; // Global IQ mode enable
 
 // Arrays to hold parameters and menu items for each channel
 Parameter paramFreq[numChannels] = { Parameter("F Ch:1", channels[0].frequency, pllMinF, pllMaxF),
@@ -224,10 +222,17 @@ void setup()
         delay(5000);
     }
 
-    si5351wrapper->setupCLK0(channels[0].frequency, (si5351DriveStrength_t)channels[0].powerLevel);
-    si5351wrapper->setupCLK2(channels[1].frequency, (si5351DriveStrength_t)channels[1].powerLevel);
-    si5351wrapper->enableOutputs((1 << 0) | (1 << 2));
+    // si5351wrapper->enableOutputsCustom(0);
+    // si5351wrapper->setupCLK0(1000 * 1000, (si5351DriveStrength_t)channels[0].powerLevel);
+    // si5351wrapper->setupCLK2(1000 * 2000, (si5351DriveStrength_t)channels[1].powerLevel);
+    // si5351wrapper->enableOutputsCustom((1 << 0) | (1 << 2));
 
+    si5351wrapper->updateParameters(channels, iqModeEn);
+
+    // si5351wrapper->enableOutputsCustom(0);
+    // si5351wrapper->setupCLK0(1000 * 3000, (si5351DriveStrength_t)channels[0].powerLevel);
+    // si5351wrapper->setupCLK2(1000 * 4004, (si5351DriveStrength_t)channels[1].powerLevel);
+    // si5351wrapper->enableOutputsCustom((1 << 0) | (1 << 2));
     // si5351wrapper->getSi5351().setClockBuilderData();
 }
 
@@ -253,7 +258,15 @@ void loop()
 
     if (updatePllParameters)
     {
-        si5351wrapper->updateParameters(channels, iqModeEn); // Call to update parameters
+         si5351wrapper->updateParameters(channels, iqModeEn); // Call to update parameters
+
+        // si5351wrapper->enableOutputsCustom(0);
+        // si5351wrapper->setupCLK0(channels[0].frequency,
+        //                          (si5351DriveStrength_t)channels[0].powerLevel);
+        // si5351wrapper->setupCLK2(channels[1].frequency,
+        //                          (si5351DriveStrength_t)channels[1].powerLevel);
+        // si5351wrapper->enableOutputsCustom((1 << 0) | (1 << 2));
+
         updatePllParameters = false;
     }
 

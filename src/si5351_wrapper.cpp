@@ -16,7 +16,7 @@ int Si5351Wrapper::init(int32_t correction)
         // Serial.println("Si5351 Initialization failed!");
         return err;
     }
-    si5351.enableOutputs(false);
+    enableOutputs(false);
     return ERROR_NONE;
 }
 
@@ -317,19 +317,19 @@ void Si5351Wrapper::updateParameters(ChannelConfig channels[], int iqModeEnabled
     else
     {
         // Standard mode with independent frequencies for each channel
-        calculate(channels[0].frequency, &pllConfig, &outputConfig);
-        setupOutput(0, SI5351_PLL_A,
-                    static_cast<si5351DriveStrength_t>(
-                        POWER_STATES[channels[0].powerLevel].driveStrength),
-                    &outputConfig, 0);
-        setupPLL(SI5351_PLL_A, &pllConfig);
+        si5351_CalcIQ(channels[0].frequency, &pllConfig, &outputConfig);
+        setupOutputCustom(0, SI5351_PLL_A,
+                          static_cast<si5351DriveStrength_t>(
+                              POWER_STATES[channels[0].powerLevel].driveStrength),
+                          &outputConfig, 0);
+        setupPLLCustom(SI5351_PLL_A, &pllConfig);
 
-        calculate(channels[1].frequency, &pllConfig, &outputConfig);
-        setupOutput(2, SI5351_PLL_B,
-                    static_cast<si5351DriveStrength_t>(
-                        POWER_STATES[channels[1].powerLevel].driveStrength),
-                    &outputConfig, 0);
-        setupPLL(SI5351_PLL_B, &pllConfig);
+        si5351_CalcIQ(channels[1].frequency, &pllConfig, &outputConfig);
+        setupOutputCustom(2, SI5351_PLL_B,
+                          static_cast<si5351DriveStrength_t>(
+                              POWER_STATES[channels[1].powerLevel].driveStrength),
+                          &outputConfig, 0);
+        setupPLLCustom(SI5351_PLL_B, &pllConfig);
     }
 
     // Enable outputs based on channel enable states

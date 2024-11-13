@@ -106,7 +106,7 @@ void MenuManager::handleInput(Button button)
             topIndex++;
         break;
 
-    //case BUTTON_UP:
+    // case BUTTON_UP:
     case BUTTON_CENTER:
         item = currentMenu->getItem(currentIndex);
         if (item != nullptr)
@@ -142,34 +142,37 @@ void MenuManager::handleInput(Button button)
 void MenuManager::displayParameter(Parameter *parameter)
 {
     bool tuneFlag = true;
+    Button bt = BUTTON_NONE;
     waitTillButtonReleased(BUTTON_DOWN);
 
     while (tuneFlag)
     {
-        displayParameterDetails(parameter); // Display the current scale
-
-        Button bt = debounceButton();
-        switch (bt)
+        bt = debounceButton();
+        if (bt != BUTTON_NONE)
         {
-        case BUTTON_LEFT:
-            parameter->decrement(currentScale);
-            break;
+            switch (bt)
+            {
+            case BUTTON_LEFT:
+                parameter->decrement(currentScale);
+                break;
 
-        case BUTTON_RIGHT:
-            parameter->increment(currentScale);
-            break;
+            case BUTTON_RIGHT:
+                parameter->increment(currentScale);
+                break;
 
-        case BUTTON_DOWN:
-            tuneFlag = false; // Exit adjustment mode
-            currentScale = 1;
-            break;
+            case BUTTON_DOWN:
+                tuneFlag = false; // Exit adjustment mode
+                currentScale = 1;
+                break;
 
-        case BUTTON_CENTER: // Switch to the next scale
-            switchScale();
-            break;
+            case BUTTON_CENTER: // Switch to the next scale
+                switchScale();
+                break;
 
-        default:
-            break;
+            default:
+                break;
+            }
+            displayParameterDetails(parameter); // Display the current scale
         }
     }
 }
