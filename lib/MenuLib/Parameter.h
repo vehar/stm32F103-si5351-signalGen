@@ -6,17 +6,17 @@
 class Parameter
 {
 public:
-    Parameter(const char *name, int &value, int minValue, int maxValue);
+    Parameter(const char *name, int32_t &value, int32_t minValue, int32_t maxValue);
     const char *getName();
-    int getValue();
-    int increment(int scale = 1);
-    int decrement(int scale = 1);
+    int32_t getValue();
+    int32_t increment(int scale = 1);
+    int32_t decrement(int scale = 1);
 
 private:
     const char *name;
-    int &value;
-    int minValue;
-    int maxValue;
+    int32_t &value;
+    int32_t minValue;
+    int32_t maxValue;
 };
 
 #endif

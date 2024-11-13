@@ -17,7 +17,7 @@ public:
 
     void print(const char *text) override { _oled.print(text); }
 
-    void print(int number) override { _oled.print(number); } // Implement int overload
+    void print(uint32_t number) override { _oled.print(number); } // Implement int overload
 
     void display() override { _oled.display(); }
 

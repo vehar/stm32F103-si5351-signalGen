@@ -6,23 +6,31 @@
 #include "OLED_SH1106_Adapter.h"
 #include "Parameter.h"
 #include "Stm32EncoderButtonAdapter.h"
+#include "si5351_wrapper.h"
 #include <Arduino.h>
 #include <Wire.h>
-#include "si5351_wrapper.h"
 
-
-const int numChannels = 2;
-int frequencies[numChannels] = { 10000, 10000 }; // Initial frequencies for each channel
-int powerLevels[numChannels] = { 1, 1 };         // Initial power levels for each channel
-int iqModeEn = 0;                                // Global IQ mode enable
 bool activateMenuMode = false;
 bool updatePllParameters = false;
-// Arrays to hold parameters and menu items for each channel
-Parameter paramFreq[numChannels] = { Parameter("F Ch:1", frequencies[0], 10, 1000000),
-                                     Parameter("F Ch:2", frequencies[1], 10, 1000000) };
 
-Parameter paramPower[numChannels] = { Parameter("P Ch:1", powerLevels[0], 0, 4),
-                                      Parameter("P Ch:2", powerLevels[1], 0, 4) };
+const int numChannels = 2;
+int32_t iqModeEn = 0; // Global IQ mode enable
+
+const int32_t pllMinF = 2500;              // 2.5kHz
+const int32_t pllMaxF = 200 * 1000 * 1000; // 200MHz
+
+// Channel configurations, including initial frequency and power level for each channel
+Si5351Wrapper::ChannelConfig channels[numChannels] = {
+    { pllMaxF / 2, 1, true }, // Channel 1: Frequency 10kHz, Power Level 1, Enabled
+    { pllMaxF / 2, 1, true }  // Channel 2: Frequency 10kHz, Power Level 1, Enabled
+};
+
+// Arrays to hold parameters and menu items for each channel
+Parameter paramFreq[numChannels] = { Parameter("F Ch:1", channels[0].frequency, pllMinF, pllMaxF),
+                                     Parameter("F Ch:2", channels[1].frequency, pllMinF, pllMaxF) };
+
+Parameter paramPower[numChannels] = { Parameter("P Ch:1", channels[0].powerLevel, 0, 4),
+                                      Parameter("P Ch:2", channels[1].powerLevel, 0, 4) };
 
 // Global IQ mode parameter
 Parameter paramIQ("IQ mode en", iqModeEn, 0, 1);
@@ -63,33 +71,22 @@ OLED_SH1106 oled(OLED_RESET);
 ButtonInterface *buttonAdapter;
 DisplayInterface *displayAdapter;
 MenuManager *menuManager;
-Si5251Wrapper *si5351wrapper;
-
-
+Si5351Wrapper *si5351wrapper;
 
 //=================================
-enum DriveStrength
+// Power state with display text for OLED display
+struct PowerStateDisplay
 {
-    DRIVE_STRENGTH_OFF,
-    DRIVE_STRENGTH_2MA,
-    DRIVE_STRENGTH_4MA,
-    DRIVE_STRENGTH_6MA,
-    DRIVE_STRENGTH_8MA
-};
-
-// Define the power state struct
-struct PowerState
-{
-    DriveStrength driveStrength;
+    si5351DriveStrength_t driveStrength;
     const char *displayText;
 };
 
-// Map of power states
-const PowerState POWER_STATES[] = { { DRIVE_STRENGTH_OFF, "OFF" },
-                                    { DRIVE_STRENGTH_2MA, "2mA" },
-                                    { DRIVE_STRENGTH_4MA, "4mA" },
-                                    { DRIVE_STRENGTH_6MA, "6mA" },
-                                    { DRIVE_STRENGTH_8MA, "8mA" } };
+// Array for display purposes
+const PowerStateDisplay POWER_STATES_DISPLAY[] = { { DRIVE_STRENGTH_OFF, "OFF" },
+                                                   { DRIVE_STRENGTH_2MA, "2mA" },
+                                                   { DRIVE_STRENGTH_4MA, "4mA" },
+                                                   { DRIVE_STRENGTH_6MA, "6mA" },
+                                                   { DRIVE_STRENGTH_8MA, "8mA" } };
 
 //=================================
 
@@ -112,15 +109,16 @@ void displayCurrentChannelStates()
         }
         else
         {
-            snprintf(buff, sizeof(buff), "Ch%d: %03ld.%03ld.%03ld", i + 1, frequencies[i] / 1000000,
-                     (frequencies[i] / 1000) % 1000, frequencies[i] % 1000);
+            snprintf(buff, sizeof(buff), "Ch%d: %03ld.%03ld.%03ld", i + 1,
+                     channels[i].frequency / 1000000, (channels[i].frequency / 1000) % 1000,
+                     channels[i].frequency % 1000);
             oled.print(buff);
         }
 
         // Display power state
         oled.print("\n");
         oled.print("Pwr: ");
-        oled.print(POWER_STATES[powerLevels[i]].displayText);
+        oled.print(POWER_STATES_DISPLAY[channels[i].powerLevel].displayText);
     }
 
     oled.display();
@@ -199,7 +197,7 @@ void setup()
                                                   UP_BUTTON_PIN, DOWN_BUTTON_PIN);
     menuManager = new MenuManager(*displayAdapter, &mainMenu, buttonAdapter);
 
-    si5351wrapper = new Si5251Wrapper();
+    si5351wrapper = new Si5351Wrapper();
 
     initializePins();
     Wire.setSCL(PB6);
@@ -217,8 +215,8 @@ void setup()
     char buff[512];
     int idx = 0;
 
-
-    if (si5351wrapper->initializeModule() != ERROR_NONE)
+    const int32_t correction = 978;
+    if (si5351wrapper->init(correction) != ERROR_NONE)
     {
         /* There was a problem detecting the IC ... check your connections */
         appendToBuffer(buff, idx, sizeof(buff), "Did not find the si5351\n");
@@ -226,8 +224,11 @@ void setup()
         delay(5000);
     }
 
-    si5351wrapper->testModule();
-    
+    si5351wrapper->setupCLK0(channels[0].frequency, (si5351DriveStrength_t)channels[0].powerLevel);
+    si5351wrapper->setupCLK2(channels[1].frequency, (si5351DriveStrength_t)channels[1].powerLevel);
+    si5351wrapper->enableOutputs((1 << 0) | (1 << 2));
+
+    // si5351wrapper->getSi5351().setClockBuilderData();
 }
 
 void loop()
@@ -252,7 +253,7 @@ void loop()
 
     if (updatePllParameters)
     {
-       // updateSi5351Parameters(); // TODO
+        si5351wrapper->updateParameters(channels, iqModeEn); // Call to update parameters
         updatePllParameters = false;
     }
 

@@ -1,6 +1,8 @@
 #ifndef DISPLAY_INTERFACE_H
 #define DISPLAY_INTERFACE_H
 
+#include <stdint.h>
+
 class DisplayInterface
 {
 public:
@@ -8,7 +10,7 @@ public:
     virtual void setTextSize(int size) = 0;
     virtual void setCursor(int x, int y) = 0;
     virtual void print(const char *text) = 0;
-    virtual void print(int number) = 0;  // Add overload for integers
+    virtual void print(uint32_t number) = 0; // Add overload for integers
     virtual void display() = 0;
     virtual void setTextColor(int color) = 0; // Verify this is needed
     virtual ~DisplayInterface() = default;
