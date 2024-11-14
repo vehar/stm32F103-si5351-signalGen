@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdint.h>
 // Global variables
 extern int frequency;
 extern int powerLevel;
@@ -17,5 +18,9 @@ extern int powerLevel;
 // OLED settings
 constexpr int OLED_RESET = -1;
 #define OLED_ADDR 0x3C
+
+const int32_t pllMinF = 2500;              // 2.5kHz
+const int32_t pllMaxF = 200 * 1000 * 1000; // 200MHz
+const int numChannels = 2;
 
 #endif

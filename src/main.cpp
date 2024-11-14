@@ -8,16 +8,14 @@
 #include "Stm32EncoderButtonAdapter.h"
 #include "si5351.h"
 
+#include "USBSerial.h" // For STM32 Arduino USB library support
+#include "cmdParser.h"
 #include <Arduino.h>
 #include <Wire.h>
 #include <stdint.h> // For int32_t
 
 bool activateMenuMode = false;
 bool updatePllParameters = false;
-
-const int32_t pllMinF = 2500;              // 2.5kHz
-const int32_t pllMaxF = 200 * 1000 * 1000; // 200MHz
-const int numChannels = 2;
 
 // Channel configurations, including initial frequency and power level for each channel
 ChannelConfig channels[numChannels] = { { pllMaxF / 100, 1, true }, { pllMaxF / 100, 1, true } };
@@ -54,6 +52,8 @@ OLED_SH1106 oled(OLED_RESET);
 ButtonInterface *buttonAdapter;
 DisplayInterface *displayAdapter;
 MenuManager *menuManager;
+Parser parser;
+AppState appState;
 
 void actionMenuExit()
 {
@@ -172,6 +172,8 @@ void setup()
                                                   UP_BUTTON_PIN, DOWN_BUTTON_PIN);
     menuManager = new MenuManager(*displayAdapter, &mainMenu, buttonAdapter);
 
+    SerialUSB.begin();
+
     initializePins();
     Wire.setSCL(PB6);
     Wire.setSDA(PB7);
@@ -186,12 +188,92 @@ void setup()
     si5351_SetupCLK0(3 * 1000 * 1000, DRIVE_STRENGTH_4MA);
     si5351_SetupCLK2(150 * 1000 * 1000, DRIVE_STRENGTH_4MA);
     si5351_EnableOutputs((1 << CLK0) | (1 << CLK2));
+
+    SerialUSB.println("USB VCP Initialized"); // Test output
 }
 
 void Si5351_updateParameters(ChannelConfig channels[], int iqModeEnabled);
 
 void loop()
 {
+    if (SerialUSB.available())
+    {
+        static String currentCommand;
+        static String lastCommand;
+        static bool echoEnabled = true;
+
+        while (SerialUSB.available())
+        {
+            char inputChar = SerialUSB.read();
+
+            if (inputChar == '\r' || inputChar == '\n')
+            {
+                // Enter key pressed: process the command
+                SerialUSB.println();
+                if (currentCommand.length() != 0)
+                {
+                    lastCommand = currentCommand; // Store the current command
+                    parser.parseCommand(currentCommand.c_str(), appState);
+
+                    // Apply updates based on flags in AppState
+                    for (int i = 0; i < numChannels; ++i)
+                    {
+                        if (appState.flags.frequency[i])
+                        {
+                            channels[i].frequency = appState.channels[i].frequency;
+                            SerialUSB.printf("Frequency for channel %d updated to %ld\n", i,
+                                             channels[i].frequency);
+                        }
+                        if (appState.flags.powerLevel[i])
+                        {
+                            channels[i].powerLevel = appState.channels[i].powerLevel;
+                            SerialUSB.printf("Power level for channel %d updated to %ld\n", i,
+                                             channels[i].powerLevel);
+                        }
+                    }
+
+                    // Update IQ mode if flagged
+                    if (appState.flags.iqMode)
+                    {
+                        iqModeEn = appState.iqModeEnabled;
+                        SerialUSB.println("IQ mode updated");
+                    }
+
+                    updatePllParameters = true;
+                    appState.resetFlags();
+                }
+                currentCommand = ""; // Reset command buffer
+            }
+            else if (inputChar == '\x1b') // Detect escape sequence for up arrow
+            {
+                // Check if up arrow is pressed by reading further input
+                if (SerialUSB.read() == '[' && SerialUSB.read() == 'A')
+                {
+                    currentCommand = lastCommand;    // Load last command
+                    SerialUSB.print("\r> ");         // Reprint prompt
+                    SerialUSB.print(currentCommand); // Echo last command
+                }
+            }
+            else if (inputChar == '\b' || inputChar == 0x7F) // Backspace key
+            {
+                if (currentCommand.length() != 0)
+                {
+                    currentCommand.remove(currentCommand.length() - 1); // Remove last character
+                    SerialUSB.print("\b \b"); // Erase last character on screen
+                }
+            }
+            else
+            {
+                // Regular character: echo it and add to command buffer
+                if (echoEnabled)
+                {
+                    SerialUSB.print(inputChar);
+                }
+                currentCommand += inputChar;
+            }
+        }
+    }
+
     Button pressedButton = buttonAdapter->getPressedButton();
     if (pressedButton == BUTTON_UP)
     {
@@ -205,6 +287,7 @@ void loop()
     else
     {
         displayCurrentChannelStates();
+        delay(10);
     }
 
     if (updatePllParameters)
