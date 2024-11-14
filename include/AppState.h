@@ -6,8 +6,8 @@
 
 struct AppState
 {
-    ChannelConfig channels[2];  // Stores frequency, power level, and enabled state for each channel
-    bool iqModeEnabled = false; // IQ mode enable status
+    ChannelConfig channels[2]; // Stores frequency, power level, and enabled state for each channel
+    int32_t iqModeEnabled = 0; // IQ mode enable state
 
     // Flags to indicate updates for each parameter
     struct UpdateFlags

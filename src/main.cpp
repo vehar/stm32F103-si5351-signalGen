@@ -17,18 +17,26 @@
 bool activateMenuMode = false;
 bool updatePllParameters = false;
 
+OLED_SH1106 oled(OLED_RESET);
+ButtonInterface *buttonAdapter;
+DisplayInterface *displayAdapter;
+MenuManager *menuManager;
+Parser parser;
+AppState appState;
+
 // Channel configurations, including initial frequency and power level for each channel
-ChannelConfig channels[numChannels] = { { pllMaxF / 100, 1, true }, { pllMaxF / 100, 1, true } };
-int32_t iqModeEn = 0; // Global IQ mode enable
+// ChannelConfig channels[numChannels] = { { pllMaxF / 100, 1, true }, { pllMaxF / 100, 1, true } };
 
-Parameter paramFreq[numChannels] = { Parameter("F Ch:1", channels[0].frequency, pllMinF, pllMaxF),
-                                     Parameter("F Ch:2", channels[1].frequency, pllMinF, pllMaxF) };
+Parameter paramFreq[numChannels] = {
+    Parameter("F Ch:1", appState.channels[0].frequency, pllMinF, pllMaxF),
+    Parameter("F Ch:2", appState.channels[1].frequency, pllMinF, pllMaxF)
+};
 
-Parameter paramPower[numChannels] = { Parameter("P Ch:1", channels[0].powerLevel, 0, 4),
-                                      Parameter("P Ch:2", channels[1].powerLevel, 0, 4) };
+Parameter paramPower[numChannels] = { Parameter("P Ch:1", appState.channels[0].powerLevel, 0, 4),
+                                      Parameter("P Ch:2", appState.channels[1].powerLevel, 0, 4) };
 
 // Global IQ mode parameter
-Parameter paramIQ("IQ mode en", iqModeEn, 0, 1);
+Parameter paramIQ("IQ mode en", appState.iqModeEnabled, 0, 1);
 
 MenuItem itemFreq[numChannels] = {
     MenuItem("Set Frequency Ch1", MENU_ITEM_PARAMETER, nullptr, &paramFreq[0]),
@@ -48,20 +56,13 @@ MenuItem *mainMenuItems[] = { &itemFreq[0],  &itemPower[0], &itemFreq[1],
 const int numberOfMenuItems = sizeof(mainMenuItems) / sizeof(mainMenuItems[0]);
 Menu mainMenu("Signal Gen Si5351", mainMenuItems, numberOfMenuItems);
 
-OLED_SH1106 oled(OLED_RESET);
-ButtonInterface *buttonAdapter;
-DisplayInterface *displayAdapter;
-MenuManager *menuManager;
-Parser parser;
-AppState appState;
-
 void actionMenuExit()
 {
     activateMenuMode = false;
     updatePllParameters = true;
 }
 
-void displayCurrentChannelStates()
+void displayCurrentChannelStates(const AppState &state)
 {
     struct PowerStateDisplay
     {
@@ -69,11 +70,11 @@ void displayCurrentChannelStates()
         const char *displayText;
     };
 
-    const PowerStateDisplay POWER_STATES_DISPLAY[] = { { DRIVE_STRENGTH_OFF, "OFF" },
-                                                       { DRIVE_STRENGTH_2MA, "2mA" },
+    const PowerStateDisplay POWER_STATES_DISPLAY[] = { { DRIVE_STRENGTH_2MA, "2mA" },
                                                        { DRIVE_STRENGTH_4MA, "4mA" },
                                                        { DRIVE_STRENGTH_6MA, "6mA" },
-                                                       { DRIVE_STRENGTH_8MA, "8mA" } };
+                                                       { DRIVE_STRENGTH_8MA, "8mA" },
+                                                       { DRIVE_STRENGTH_OFF, "OFF" } };
 
     oled.clearDisplay();
     oled.setTextSize(1);
@@ -83,19 +84,20 @@ void displayCurrentChannelStates()
     for (int i = 0; i < numChannels; i++)
     {
         oled.setCursor(0, i * 16);
-        if (i == 1 && iqModeEn)
+        if (i == 1 && state.iqModeEnabled)
         {
             oled.print("Ch2: =Ch1+90*");
         }
         else
         {
             snprintf(buff, sizeof(buff), "Ch%d: %03ld.%03ld.%03ld", i + 1,
-                     channels[i].frequency / 1000000, (channels[i].frequency / 1000) % 1000,
-                     channels[i].frequency % 1000);
+                     state.channels[i].frequency / 1000000,
+                     (state.channels[i].frequency / 1000) % 1000,
+                     state.channels[i].frequency % 1000);
             oled.print(buff);
         }
         oled.print("\nPwr: ");
-        oled.print(POWER_STATES_DISPLAY[channels[i].powerLevel].displayText);
+        oled.print(POWER_STATES_DISPLAY[state.channels[i].powerLevel].displayText);
     }
     oled.display();
 }
@@ -201,6 +203,7 @@ void loop()
         static String currentCommand;
         static String lastCommand;
         static bool echoEnabled = true;
+        static int cursorPosition = 0; // Track cursor position in the command
 
         while (SerialUSB.available())
         {
@@ -220,22 +223,19 @@ void loop()
                     {
                         if (appState.flags.frequency[i])
                         {
-                            channels[i].frequency = appState.channels[i].frequency;
-                            SerialUSB.printf("Frequency for channel %d updated to %ld\n", i,
-                                             channels[i].frequency);
+                            SerialUSB.printf("Frequency for channel %d updated to %ld\r\n", i,
+                                             appState.channels[i].frequency);
                         }
                         if (appState.flags.powerLevel[i])
                         {
-                            channels[i].powerLevel = appState.channels[i].powerLevel;
-                            SerialUSB.printf("Power level for channel %d updated to %ld\n", i,
-                                             channels[i].powerLevel);
+                            SerialUSB.printf("Power level for channel %d updated to %ld\r\n", i,
+                                             appState.channels[i].powerLevel);
                         }
                     }
 
                     // Update IQ mode if flagged
                     if (appState.flags.iqMode)
                     {
-                        iqModeEn = appState.iqModeEnabled;
                         SerialUSB.println("IQ mode updated");
                     }
 
@@ -243,33 +243,67 @@ void loop()
                     appState.resetFlags();
                 }
                 currentCommand = ""; // Reset command buffer
+                cursorPosition = 0;  // Reset cursor position
             }
-            else if (inputChar == '\x1b') // Detect escape sequence for up arrow
+            else if (inputChar == '\x1b') // Detect escape sequences for arrows
             {
-                // Check if up arrow is pressed by reading further input
-                if (SerialUSB.read() == '[' && SerialUSB.read() == 'A')
+                // Escape sequence format: '\x1b' '[' <arrow code>
+                char secondChar = SerialUSB.read();
+                char arrowKey = SerialUSB.read();
+
+                if (secondChar == '[')
                 {
-                    currentCommand = lastCommand;    // Load last command
-                    SerialUSB.print("\r> ");         // Reprint prompt
-                    SerialUSB.print(currentCommand); // Echo last command
+                    if (arrowKey == 'A') // Up arrow
+                    {
+                        currentCommand = lastCommand; // Load last command
+                        cursorPosition = currentCommand.length();
+                        SerialUSB.print("\r> ");
+                        SerialUSB.print(currentCommand);
+                    }
+                    else if (arrowKey == 'D' && cursorPosition > 0) // Left arrow
+                    {
+                        cursorPosition--;
+                        SerialUSB.print("\x1b[D"); // Move cursor left
+                    }
+                    else if (arrowKey == 'C' &&
+                             cursorPosition < currentCommand.length()) // Right arrow
+                    {
+                        cursorPosition++;
+                        SerialUSB.print("\x1b[C"); // Move cursor right
+                    }
                 }
             }
             else if (inputChar == '\b' || inputChar == 0x7F) // Backspace key
             {
-                if (currentCommand.length() != 0)
+                if (cursorPosition > 0)
                 {
-                    currentCommand.remove(currentCommand.length() - 1); // Remove last character
-                    SerialUSB.print("\b \b"); // Erase last character on screen
+                    currentCommand.remove(cursorPosition - 1, 1); // Remove character at cursor
+                    cursorPosition--;
+                    SerialUSB.print("\b \b"); // Erase character on screen
+
+                    // Redraw command after the cursor
+                    SerialUSB.print(currentCommand.substring(cursorPosition));
+                    SerialUSB.print(" "); // Erase trailing character
+                    SerialUSB.print("\x1b[" + String(currentCommand.length() - cursorPosition + 1) +
+                                    "D"); // Move cursor back
                 }
             }
             else
             {
-                // Regular character: echo it and add to command buffer
+                // Regular character: insert it at the cursor position
+                currentCommand = currentCommand.substring(0, cursorPosition) + inputChar +
+                                 currentCommand.substring(cursorPosition);
+                cursorPosition++;
+
+                // Redraw the command
                 if (echoEnabled)
                 {
-                    SerialUSB.print(inputChar);
+                    SerialUSB.print("\r> ");         // Clear line with prompt
+                    SerialUSB.print(currentCommand); // Display entire command
+                    SerialUSB.print(" "); // Extra space to clear any remaining characters
+                    SerialUSB.print("\x1b[" + String(currentCommand.length() - cursorPosition + 1) +
+                                    "D"); // Move cursor to correct position
                 }
-                currentCommand += inputChar;
             }
         }
     }
@@ -286,13 +320,13 @@ void loop()
     }
     else
     {
-        displayCurrentChannelStates();
+        displayCurrentChannelStates(appState);
         delay(10);
     }
 
     if (updatePllParameters)
     {
-        Si5351_updateParameters(channels, iqModeEn);
+        Si5351_updateParameters(appState.channels, appState.iqModeEnabled);
         updatePllParameters = false;
     }
     delay(100);
