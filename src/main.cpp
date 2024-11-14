@@ -17,15 +17,16 @@
 bool activateMenuMode = false;
 bool updatePllParameters = false;
 
+// Channel configurations, including initial frequency and power level for each channel
+ChannelConfig channelsDefault[numChannels] = { { pllMaxF / 100, 1, true },
+                                               { pllMaxF / 100, 1, true } };
+
 OLED_SH1106 oled(OLED_RESET);
 ButtonInterface *buttonAdapter;
 DisplayInterface *displayAdapter;
 MenuManager *menuManager;
 Parser parser;
 AppState appState;
-
-// Channel configurations, including initial frequency and power level for each channel
-// ChannelConfig channels[numChannels] = { { pllMaxF / 100, 1, true }, { pllMaxF / 100, 1, true } };
 
 Parameter paramFreq[numChannels] = {
     Parameter("F Ch:1", appState.channels[0].frequency, pllMinF, pllMaxF),
@@ -174,6 +175,9 @@ void setup()
                                                   UP_BUTTON_PIN, DOWN_BUTTON_PIN);
     menuManager = new MenuManager(*displayAdapter, &mainMenu, buttonAdapter);
 
+    appState.channels[0] = channelsDefault[0];
+    appState.channels[1] = channelsDefault[1];
+
     SerialUSB.begin();
 
     initializePins();
@@ -196,6 +200,12 @@ void setup()
 
 void Si5351_updateParameters(ChannelConfig channels[], int iqModeEnabled);
 
+// TODO
+// 1 - paramerer enter display
+// 2 - add cmd history
+// 3 - add phase shifting
+// 4 - add 3d channel support
+
 void loop()
 {
     if (SerialUSB.available())
@@ -204,6 +214,14 @@ void loop()
         static String lastCommand;
         static bool echoEnabled = true;
         static int cursorPosition = 0; // Track cursor position in the command
+
+        // Command history ring buffer
+        static const int historySize = 10;
+        static String commandHistory[historySize];
+        // Points to the current position in the history for new entries
+        static int historyIndex = 0;
+        // Tracks current position when navigating history, -1 means not viewing history
+        static int viewIndex = -1;
 
         while (SerialUSB.available())
         {
@@ -215,7 +233,15 @@ void loop()
                 SerialUSB.println();
                 if (currentCommand.length() != 0)
                 {
+                    /* //TODO add history!
+                    // Add command to history and update history pointers
+                    commandHistory[historyIndex] = currentCommand;
+                    historyIndex = (historyIndex + 1) %
+                                   historySize; // Move to the next position in the ring buffer
+                    viewIndex = -1;             // Reset view index after executing a command
+*/
                     lastCommand = currentCommand; // Store the current command
+                    // Process the command
                     parser.parseCommand(currentCommand.c_str(), appState);
 
                     // Apply updates based on flags in AppState
@@ -253,12 +279,53 @@ void loop()
 
                 if (secondChar == '[')
                 {
-                    if (arrowKey == 'A') // Up arrow
+                    if (arrowKey == 'A') // Up arrow: navigate to previous command
                     {
+                        /*
+                        if (viewIndex == -1 && historyIndex > 0)
+                        {
+                         // Start with the last entered command
+                            viewIndex = (historyIndex - 1 + historySize) %
+                                        historySize;
+                        }
+                        else if (viewIndex > 0)
+                        {
+                            viewIndex = (viewIndex - 1 + historySize) % historySize;
+                        }
+
+                        if (viewIndex >= 0 && commandHistory[viewIndex].length() > 0)
+                        {
+                            currentCommand = commandHistory[viewIndex];
+                            cursorPosition = currentCommand.length();
+                            SerialUSB.print("\r> ");
+                            SerialUSB.print(currentCommand);
+                            SerialUSB.print(" \r");
+                             // Clear any extra characters on the line
+                        }
+                    }
+                    else if (arrowKey == 'B') // Down arrow: navigate to next command
+                    {
+                        if (viewIndex >= 0)
+                        {
+                            viewIndex = (viewIndex + 1) % historySize;
+
+                            if (viewIndex == historyIndex ||
+                                commandHistory[viewIndex].length() == 0)
+                            {
+                                currentCommand = ""; // Clear if we’re past the most recent command
+                                viewIndex = -1;      // Reset view index to exit history navigation
+                            }
+                            else
+                            {
+                                currentCommand = commandHistory[viewIndex];
+                            }
+*/
                         currentCommand = lastCommand; // Load last command
                         cursorPosition = currentCommand.length();
                         SerialUSB.print("\r> ");
                         SerialUSB.print(currentCommand);
+                        // SerialUSB.print(" \r");
+                        // }
                     }
                     else if (arrowKey == 'D' && cursorPosition > 0) // Left arrow
                     {
