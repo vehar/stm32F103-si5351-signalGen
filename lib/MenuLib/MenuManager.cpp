@@ -145,6 +145,7 @@ void MenuManager::displayParameter(Parameter *parameter)
     Button bt = BUTTON_NONE;
     waitTillButtonReleased(BUTTON_DOWN);
 
+    displayParameterDetails(parameter); // Display the current scale and value
     while (tuneFlag)
     {
         bt = debounceButton();
@@ -172,7 +173,7 @@ void MenuManager::displayParameter(Parameter *parameter)
             default:
                 break;
             }
-            displayParameterDetails(parameter); // Display the current scale
+            displayParameterDetails(parameter); // Display the current scale and value
         }
     }
 }
